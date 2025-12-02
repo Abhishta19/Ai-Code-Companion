@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Editor from "@monaco-editor/react";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { useTheme } from "next-themes";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,11 +15,13 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 
+
 export default function CodeLabPage() {
   const [language, setLanguage] = useState("javascript");
   const [code, setCode] = useState("");
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
+  const { theme } = useTheme();
 
   // ⭐ Predefined boilerplate code
   const templates: Record<string, string> = {
@@ -52,7 +56,12 @@ int main() {
   }, []);
 
   return (
+    
     <div className="p-8 max-w-5xl mx-auto space-y-6">
+      <div className="flex justify-end mb-4">
+  <ThemeToggle />
+</div>
+
       <h1 className="text-3xl font-bold text-center">AI Code Lab Companion</h1>
 
       {/* Language Select */}
@@ -82,12 +91,13 @@ int main() {
       <Card>
         <CardContent className="p-0">
           <Editor
-            height="350px"
-            theme="vs-dark"
-            language={language}
-            value={code}
-            onChange={(value) => setCode(value || "")}
-          />
+  height="350px"
+  theme={theme === "dark" ? "vs-dark" : "light"}
+  language={language}
+  value={code}
+  onChange={(value) => setCode(value || "")}
+/>
+
         </CardContent>
       </Card>
 

@@ -14,7 +14,17 @@ export async function POST(req: NextRequest) {
       apiKey: process.env.GROQ_API_KEY!,
     });
 
-    const prompt = `Explain the following ${language} code line-by-line in simple terms:\n\n${code}`;
+    const prompt = `
+You are explaining code to a beginner.
+
+- If the code is very small or simple (like a Hello World or one short function), explain it in 1–3 short sentences. Do NOT explain it line by line in that case.
+- If the code is longer or more complex (multiple functions, loops, conditions, classes, etc.), first give a short high-level summary, then explain the important parts. Use line-by-line explanation only when it really helps.
+
+Here is the ${language} code:
+
+${code}
+`;
+
 
     console.log("Prompt Sent:", prompt);
 
