@@ -1,76 +1,71 @@
 import { NextResponse } from "next/server";
 import { exec } from "child_process";
+import util from "util";
 import fs from "fs";
 import path from "path";
-import util from "util";
 
 const execPromise = util.promisify(exec);
 
+// TEMP folder for compiling
+const TEMP_DIR = path.join(process.cwd(), "temp_run");
+if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR);
+
 export async function POST(req: Request) {
+  const { code, language } = await req.json();
+
   try {
-    const { code, language } = await req.json();
-
-    if (!code || !language) {
-      return NextResponse.json(
-        { error: "Code or language missing" },
-        { status: 400 }
-      );
-    }
-
-    const tempDir = path.join(process.cwd(), "temp");
-    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
-
-    let filename = "";
+    let filePath = "";
     let command = "";
 
-    switch (language) {
-      case "javascript":
-        filename = `${tempDir}/temp.js`;
-        fs.writeFileSync(filename, code);
-        command = `node "${filename}"`;
-        break;
-
-      case "python":
-        filename = `${tempDir}/temp.py`;
-        fs.writeFileSync(filename, code);
-        command = `python "${filename}"`;
-        break;
-
-      case "java":
-        filename = `${tempDir}/Main.java`;
-        fs.writeFileSync(filename, code);
-        command = `javac "${filename}" && java -cp "${tempDir}" Main`;
-        break;
-
-      case "c":
-        filename = `${tempDir}/program.c`;
-        fs.writeFileSync(filename, code);
-        command = `gcc "${filename}" -o "${tempDir}/a.out" && "${tempDir}/a.out"`;
-        break;
-
-      case "cpp":
-        filename = `${tempDir}/program.cpp`;
-        fs.writeFileSync(filename, code);
-        command = `g++ "${filename}" -o "${tempDir}/a.out" && "${tempDir}/a.out"`;
-        break;
-
-      default:
-        return NextResponse.json(
-          { error: "Unsupported language" },
-          { status: 400 }
-        );
+    // -------------------------
+    // PYTHON
+    // -------------------------
+    if (language === "python") {
+      filePath = path.join(TEMP_DIR, "script.py");
+      fs.writeFileSync(filePath, code);
+      command = `python "${filePath}"`;
     }
 
-    // Run the command safely
-    const { stdout, stderr } = await execPromise(command, { timeout: 5000 });
+    // -------------------------
+    // C
+    // -------------------------
+    else if (language === "c") {
+      filePath = path.join(TEMP_DIR, "program.c");
+      fs.writeFileSync(filePath, code);
 
-    return NextResponse.json({
-      output: stdout || stderr || "No output.",
-    });
+      command = `gcc "${filePath}" -o "${TEMP_DIR}/program.exe" && "${TEMP_DIR}/program.exe"`;
+    }
 
-  } catch (error: any) {
-    return NextResponse.json({
-      output: error.stderr || error.message || "Execution error",
-    });
+    // -------------------------
+    // C++
+    // -------------------------
+    else if (language === "cpp") {
+      filePath = path.join(TEMP_DIR, "program.cpp");
+      fs.writeFileSync(filePath, code);
+
+      command = `g++ "${filePath}" -o "${TEMP_DIR}/program.exe" && "${TEMP_DIR}/program.exe"`;
+    }
+
+    // -------------------------
+    // JAVA
+    // -------------------------
+    else if (language === "java") {
+      filePath = path.join(TEMP_DIR, "Main.java");
+      fs.writeFileSync(filePath, code);
+
+      command = `javac "${filePath}" && java -cp "${TEMP_DIR}" Main`;
+    }
+
+    // -------------------------
+    // INVALID
+    // -------------------------
+    else {
+      return NextResponse.json({ output: "INVALID_LANGUAGE" });
+    }
+
+    const { stdout, stderr } = await execPromise(command);
+    return NextResponse.json({ output: stdout || stderr });
+  } catch (err: any) {
+    return NextResponse.json({ output: err.message });
   }
 }

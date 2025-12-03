@@ -1,6 +1,13 @@
-// Write your code here
-function add(a,b){
-    return a+b;
+console.log("Hello JavaScript!");
+let a = ()=>{
+    console.log("Hello");
 }
-res=add(5,6);
-console.log(res);
+let b = ()=>{
+    setTimeout(()=>{
+        console.log("Hello abhishta");
+    },5000);
+    
+}
+
+a()
+b()

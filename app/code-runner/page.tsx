@@ -13,7 +13,9 @@ import {
 
 export default function CodeRunner() {
   const templates: Record<string, string> = {
-    javascript: `console.log("Hello JavaScript!");`,
+    javascript: `console.log("Hello World");
+
+`,
     python: `print("Hello Python!")`,
     java: `public class Main {
   public static void main(String[] args) {
@@ -41,45 +43,79 @@ int main() {
 
   const outputRef = useRef<HTMLDivElement | null>(null);
 
-  // Auto-scroll output
+  // For JS console patching
+  const consolePatchedRef = useRef(false);
+
   useEffect(() => {
     if (outputRef.current) {
       outputRef.current.scrollTop = outputRef.current.scrollHeight;
     }
   }, [output]);
 
-  const getOutputColor = (type: string) => {
-    switch (type) {
-      case "error":
-        return "text-red-400";
-      case "warning":
-        return "text-yellow-400";
-      default:
-        return "text-green-400";
-    }
-  };
+  const getOutputColor = (type: string) =>
+    type === "error"
+      ? "text-red-400"
+      : type === "warning"
+      ? "text-yellow-400"
+      : "text-green-400";
 
   const runCode = async () => {
-    setOutput("Running...");
+    const startTime = new Date().toLocaleTimeString();
+    setOutput({ text: "", type: "success", time: startTime });
 
+    // ⭐ JAVASCRIPT RUNNER → BROWSER SAFE, SUPPORTS async/await/setTimeout
+    if (language === "javascript") {
+      if (!consolePatchedRef.current) {
+        consolePatchedRef.current = true;
+
+        const originalLog = console.log;
+        const originalErr = console.error;
+
+        console.log = (...args) => {
+          const msg = args.map(a => (typeof a === "string" ? a : JSON.stringify(a))).join(" ");
+          setOutput(p => ({ ...p, text: (p.text || "") + msg + "\n" }));
+          originalLog(...args);
+        };
+
+        console.error = (...args) => {
+          const msg = args.map(a => (typeof a === "string" ? a : JSON.stringify(a))).join(" ");
+          setOutput(p => ({ ...p, type: "error", text: (p.text || "") + msg + "\n" }));
+          originalErr(...args);
+        };
+      }
+
+      try {
+        const fn = new Function(code);
+        const res = fn();
+        if (res instanceof Promise) await res;
+      } catch (err: any) {
+        setOutput(p => ({
+          ...p,
+          type: "error",
+          text: (p.text || "") + "Error: " + err.message,
+        }));
+      }
+
+      return;
+    }
+
+    // ⭐ OTHER LANGUAGES → SERVER RUNNER
     const res = await fetch("/api/run", {
       method: "POST",
       body: JSON.stringify({ code, language }),
     });
 
     const data = await res.json();
-    const now = new Date().toLocaleTimeString();
+    const lower = String(data.output || "").toLowerCase();
 
-    let type = "success";
-    const lower = data.output.toLowerCase();
-
+    let type: any = "success";
     if (lower.includes("error")) type = "error";
     else if (lower.includes("warning")) type = "warning";
 
     setOutput({
       text: data.output,
       type,
-      time: now,
+      time: new Date().toLocaleTimeString(),
     });
   };
 
@@ -92,6 +128,7 @@ int main() {
         onValueChange={(lang) => {
           setLanguage(lang);
           setCode(templates[lang]);
+          setOutput("");
         }}
       >
         <SelectTrigger className="w-[200px]">
@@ -108,43 +145,38 @@ int main() {
       </Select>
 
       <div className="mx-auto max-w-2xl w-full">
-     <Editor
-    height="300px"
-    language={language}
-    theme="vs-dark"
-    value={code}
-    onChange={(v) => setCode(v || "")}
-  />
-</div>
+        <Editor
+          height="300px"
+          language={language}
+          theme="vs-dark"
+          value={code}
+          onChange={(v) => setCode(v || "")}
+        />
+      </div>
 
-
-      <Button onClick={runCode} className="px-4 py-2 ">
+      <Button onClick={runCode} className="px-4 py-2">
         Run Code
       </Button>
 
-      {/* Output */}
       <div className="flex justify-center">
-  <div className="w-full max-w-4xl">
-    <div
-      ref={outputRef}
-      className="bg-black p-4 rounded h-48 overflow-auto font-mono"
-    >
-      {output && typeof output === "object" ? (
-        <div>
-          <div className="text-gray-400 text-sm">[{output.time}]</div>
-          <pre
-            className={`${getOutputColor(output.type)} whitespace-pre-wrap`}
+        <div className="w-full max-w-4xl">
+          <div
+            ref={outputRef}
+            className="bg-black p-4 rounded h-48 overflow-auto font-mono"
           >
-            {output.text}
-          </pre>
+            {output && typeof output === "object" ? (
+              <div>
+                <div className="text-gray-400 text-sm">[{output.time}]</div>
+                <pre className={`${getOutputColor(output.type)} whitespace-pre-wrap`}>
+                  {output.text}
+                </pre>
+              </div>
+            ) : (
+              <pre className="text-green-400">{output}</pre>
+            )}
+          </div>
         </div>
-      ) : (
-        <pre className="text-green-400">{output}</pre>
-      )}
-    </div>
-  </div>
-</div>
-
+      </div>
     </div>
   );
 }
